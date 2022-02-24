@@ -2477,6 +2477,14 @@ ENDM
   CONFIG BOR4V = BOR40V ; Brown-out Reset Selection bit (Brown-out Reset set to 4.0V)
   CONFIG WRT = OFF ; Flash Program Memory Self Write Enable bits (Write protection off)
 
+reset_tmr0 MACRO
+    BANKSEL TMR0 ; cambiamos de banco
+    MOVLW 217 ; 10ms = 4(1/4Mhz)(256-N)(256)
+       ; N = 256 - (10ms*4Mhz)/(4*256) = 217
+    MOVWF TMR0 ; Configurar tiempo de retardo
+    BCF ((INTCON) and 07Fh), 2 ; limpiamos bandera de interrupción
+    ENDM
+
 PSECT udata_bank0 ; Memoria común
   valor: DS 1 ; Contador
   banderas: DS 1
@@ -2502,6 +2510,8 @@ push:
     SWAPF STATUS, 0
     MOVWF STATUS_TEMP
 isr:
+    BTFSC ((INTCON) and 07Fh), 2
+    CALL int_tmr0
     BTFSC ((INTCON) and 07Fh), 0 ; Interrupción del PORTB? No=0 Si=1
     CALL int_IocB ; Si -> Subrutina con codigo a ejecutar
 pop:
@@ -2519,6 +2529,25 @@ int_IocB:
     BCF ((INTCON) and 07Fh), 0
     RETURN
 
+int_tmr0:
+    reset_tmr0
+    CLRF PORTD
+    BTFSC banderas, 0
+    GOTO disp1
+    disp0:
+ MOVF display, 0 ; Movemos display a W
+ MOVWF PORTC ; Movemos Valor de tabla a PORTC
+ BSF PORTD, 1 ; Encendemos display de nibble bajo
+ BSF banderas, 0 ; Cambiamos bandera para cambiar el otro display en la siguiente interrupción
+    RETURN
+
+    disp1:
+ MOVF display+1, 0 ; Movemos display+1 a W
+ MOVWF PORTC ; Movemos Valor de tabla a PORTC
+ BSF PORTD, 0 ; Encendemos display de nibble alto
+ BCF banderas, 0 ; Cambiamos bandera para cambiar el otro display en la siguiente interrupción
+    RETURN
+
 PSECT code, delta=2, abs
 ORG 100h ; Posición 0100h para el código
 
@@ -2526,15 +2555,39 @@ ORG 100h ; Posición 0100h para el código
 main:
     CALL config_clk ; Configuración del reloj
     CALL config_io ; Configuración de entradas y salidas
+    CALL config_tmr0
     CALL config_IocRB ; Configuración de interruciones ON-CHANGE
     CALL config_INT ; Configuración de interrupciones
     BANKSEL PORTA
 
 ;-------- LOOP RRINCIPAL --------
 loop:
+    MOVF PORTA, W ; Valor del PORTA a W
+    MOVWF valor ; Movemos W a variable valor
+    CALL obtener_nibbles ; Guardamos nibble alto y bajo de valor
+    CALL config_display ; Guardamos los valores a enviar en PORTC para mostrar valor en hex
     GOTO loop
 
 ;---------- SUBRUTINAS ----------
+
+obtener_nibbles:
+    MOVF valor, 0
+    ANDLW 0x0F
+    MOVWF nibbles
+    SWAPF valor, 0
+    ANDLW 0x0F
+    MOVWF nibbles+1
+    RETURN
+
+config_display:
+    MOVF nibbles, 0
+    CALL tabla
+    MOVWF display
+    MOVF nibbles+1, 0
+    CALL tabla
+    MOVWF display+1
+    RETURN
+
 config_clk:
     BANKSEL OSCCON
     BSF ((OSCCON) and 07Fh), 6 ; IRCF/110/4MHz (frecuencia de oscilación)
@@ -2563,6 +2616,15 @@ config_io:
     CLRF PORTD
     RETURN
 
+config_tmr0:
+    BANKSEL TRISA
+    BCF ((OPTION_REG) and 07Fh), 5 ; Selección de reloj interno
+    BCF ((OPTION_REG) and 07Fh), 3 ; Asignación del Prescaler a TMR0
+    BSF ((OPTION_REG) and 07Fh), 2
+    BSF ((OPTION_REG) and 07Fh), 1
+    BSF ((OPTION_REG) and 07Fh), 0 ; Prescaler/111/1:256
+    reset_tmr0
+    RETURN
 
 config_IocRB:
     BANKSEL IOCB ; Cambiar a banco 01
@@ -2578,6 +2640,8 @@ config_INT:
     BSF ((INTCON) and 07Fh), 7 ; Habilitar interrupciones globales
     BSF ((INTCON) and 07Fh), 3 ; Habilitar interrupciones ON-CHANGE del PORTB
     BCF ((INTCON) and 07Fh), 0 ; Limpiar bandera de interrupciones ON-CHANGE
+    BSF ((INTCON) and 07Fh), 5
+    BCF ((INTCON) and 07Fh), 2
     RETURN
 
 ORG 200h ; Establecer posición para la tabla
@@ -2596,7 +2660,7 @@ tabla:
     RETLW 00000111B ; 7 en 7 seg
     RETLW 01111111B ; 8 en 7 seg
     RETLW 01101111B ; 9 en 7 seg
-    RETLW 00111111B ; 10 en 7 seg
+    RETLW 01110111B ; 10 en 7 seg
     RETLW 01111100B ; 11 en 7 seg
     RETLW 00111001B ; 12 en 7 seg
     RETLW 01011110B ; 13 en 7 seg
