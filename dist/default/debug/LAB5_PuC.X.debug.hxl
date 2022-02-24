@@ -1,18 +1,18 @@
 ### HEXMate logfile and output summary ###
 
 ### Command-line arguments ###
- dist/default/production\LAB5_PuC.X.production.hex
- -Odist/default/production\LAB5_PuC.X.production.hex
- -logfile=dist/default/production\LAB5_PuC.X.production.hxl
+ dist/default/debug\LAB5_PuC.X.debug.hex
+ -Odist/default/debug\LAB5_PuC.X.debug.hex
+ -logfile=dist/default/debug\LAB5_PuC.X.debug.hxl
  -addressing=2
 
 ### Memory Usage ###
  Intel Hex-file ranges:
-  0h - 5h		(dist/default/production\LAB5_PuC.X.production.hex)
-  8h - 87h		(dist/default/production\LAB5_PuC.X.production.hex)
-  200h - 2F9h		(dist/default/production\LAB5_PuC.X.production.hex)
-  400h - 427h		(dist/default/production\LAB5_PuC.X.production.hex)
-  400Eh - 4011h		(dist/default/production\LAB5_PuC.X.production.hex)
+  0h - 5h		(dist/default/debug\LAB5_PuC.X.debug.hex)
+  8h - 87h		(dist/default/debug\LAB5_PuC.X.debug.hex)
+  200h - 2F9h		(dist/default/debug\LAB5_PuC.X.debug.hex)
+  400h - 427h		(dist/default/debug\LAB5_PuC.X.debug.hex)
+  400Eh - 4011h		(dist/default/debug\LAB5_PuC.X.debug.hex)
  Unused ranges:
   6h - 7h
   88h - 1FFh
@@ -22,7 +22,7 @@
 ### Hex Memory Map ###
  Legend:
   -- = Unused memory
-  H1 = Intel Hex-file         (dist/default/production\LAB5_PuC.X.production.hex)
+  H1 = Intel Hex-file         (dist/default/debug\LAB5_PuC.X.debug.hex)
 ----------------------------------------------------------
          | 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
 ----------------------------------------------------------

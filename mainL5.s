@@ -41,6 +41,13 @@ PSECT udata_bank0	    ; Memoria común
   banderas:	DS 1
   nibbles:	DS 2
   display:	DS 2
+  decimal:	DS 1
+  dec_temp1:	DS 1
+  dec_temp2:	DS 1
+  unidades:	DS 1
+  decenas:	DS 1
+  centenas:	DS 1
+  disp_dec:	DS 3
 
 PSECT udata_shr		    ; Memoria compartida
   W_TEMP:	DS 1		
@@ -83,21 +90,56 @@ int_IocB:
 int_tmr0:
     reset_tmr0
     CLRF    PORTD
+    BTFSC   banderas, 2
+    GOTO    dispC
+    BTFSS   banderas, 1
+    GOTO    $+4
+    BTFSC   banderas, 0
+    GOTO    dispD
+    GOTO    dispU
     BTFSC   banderas, 0
     GOTO    disp1
+    GOTO    disp0
+
     disp0:
 	MOVF    display, 0	; Movemos display a W
 	MOVWF   PORTC		; Movemos Valor de tabla a PORTC
 	BSF	PORTD, 1	; Encendemos display de nibble bajo
-	BSF	banderas, 0	; Cambiamos bandera para cambiar el otro display en la siguiente interrupción
-    RETURN
+	MOVLW	1
+	MOVWF	banderas
+	RETURN
 
     disp1:
 	MOVF    display+1, 0	; Movemos display+1 a W
 	MOVWF   PORTC		; Movemos Valor de tabla a PORTC
 	BSF	PORTD, 0	; Encendemos display de nibble alto
-	BCF	banderas, 0	; Cambiamos bandera para cambiar el otro display en la siguiente interrupción
-    RETURN
+	MOVLW	2
+	MOVWF	banderas
+	RETURN
+
+    dispU:
+	MOVF    disp_dec, 0	; Movemos display+1 a W
+	MOVWF   PORTC		; Movemos Valor de tabla a PORTC
+	BSF	PORTD, 4	; Encendemos display de nibble alto
+	MOVLW	3
+	MOVWF	banderas
+	RETURN
+    
+    dispD:
+	MOVF    disp_dec+1, 0	; Movemos display+1 a W
+	MOVWF   PORTC		; Movemos Valor de tabla a PORTC
+	BSF	PORTD, 3	; Encendemos display de nibble alto
+	MOVLW	4
+	MOVWF	banderas
+	RETURN
+
+    dispC:
+	MOVF    disp_dec+2, 0	; Movemos display+1 a W
+	MOVWF   PORTC		; Movemos Valor de tabla a PORTC
+	BSF	PORTD, 2	; Encendemos display de nibble alto
+	MOVLW	0
+	MOVWF	banderas
+	RETURN
 
 PSECT code, delta=2, abs
 ORG 100h		    ; Posición 0100h para el código
@@ -116,7 +158,8 @@ loop:
     MOVF   PORTA, W		; Valor del PORTA a W
     MOVWF   valor		; Movemos W a variable valor
     CALL    obtener_nibbles	; Guardamos nibble alto y bajo de valor
-    CALL    config_display	; Guardamos los valores a enviar en PORTC para mostrar valor en hex
+    CALL    obtener_UDC
+    CALL    config_displays	; Guardamos los valores a enviar en PORTC para mostrar valor en hex
     GOTO    loop
 
 ;---------- SUBRUTINAS ----------
@@ -130,14 +173,61 @@ obtener_nibbles:
     MOVWF   nibbles+1
     RETURN
 
-config_display:
-    MOVF   nibbles, 0
+config_displays:
+    MOVF    nibbles, 0
     CALL    tabla
     MOVWF   display
-    MOVF   nibbles+1, 0
+    MOVF    nibbles+1, 0
     CALL    tabla
     MOVWF   display+1
+
+    MOVF    unidades, 0
+    CALL    tabla
+    MOVWF   disp_dec
+    MOVF    decenas, 0
+    CALL    tabla
+    MOVWF   disp_dec+1
+    MOVF    centenas, 0
+    CALL    tabla
+    MOVWF   disp_dec+2
+
     RETURN
+
+obtener_UDC:
+    CLRF    centenas
+    MOVF    valor, 0
+    MOVWF   decimal
+    MOVF    decimal, 0
+    MOVWF   dec_temp1
+    MOVLW   100
+    SUBWF   decimal, 1
+    BTFSS   STATUS, 0
+    GOTO    ob_dec
+    MOVF    decimal, 0
+    MOVWF   dec_temp1
+    INCF    centenas
+    GOTO    $-7
+    ob_dec:
+	CLRF	decenas
+	MOVF    dec_temp1, 0
+	MOVWF   dec_temp2
+	MOVLW	10
+	SUBWF	dec_temp1, 1
+	BTFSS	STATUS, 0
+	GOTO	ob_u
+	MOVF	dec_temp1, 0
+	MOVWF	dec_temp2
+	INCF	decenas
+	GOTO	$-7
+	ob_u:
+	    CLRF    unidades
+	    MOVLW   1
+	    SUBWF   dec_temp2, 1
+	    BTFSS   STATUS, 0
+	    GOTO    $+3	
+	    INCF    unidades
+	    GOTO    $-5
+	    RETURN
 
 config_clk:
     BANKSEL OSCCON
@@ -154,8 +244,7 @@ config_io:
     BANKSEL TRISA
     CLRF    TRISA	    ; PORTA como salida
     CLRF    TRISC
-    BCF	    TRISD, 0
-    BCF	    TRISD, 1
+    CLRF    TRISD
     BSF	    TRISB, 6	    ; RB3 como entrada
     BSF	    TRISB, 7	    ; RB7 como entrada
     BCF	    OPTION_REG, 7   ; Habilitación de Pull-ups en PORTB

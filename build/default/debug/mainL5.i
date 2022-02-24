@@ -2600,6 +2600,9 @@ main:
     CALL config_tmr0
     CALL config_IocRB ; Configuración de interruciones ON-CHANGE
     CALL config_INT ; Configuración de interrupciones
+    CLRF unidades
+    CLRF decenas
+    CLRF centenas
     BANKSEL PORTA
 
 ;-------- LOOP RRINCIPAL --------
@@ -2646,13 +2649,13 @@ obtener_UDC:
     CLRF centenas
     MOVF valor, 0
     MOVWF decimal
-    MOVF decimal, 0
-    MOVWF dec_temp1
+    ;MOVF decimal, 0
+    ;MOVWF dec_temp1
     MOVLW 100
-    SUBWF decimal, 1
+    SUBWF decimal, 0
     BTFSS STATUS, 0
     GOTO ob_dec
-    MOVF decimal, 0
+    ;MOVF decimal, 0
     MOVWF dec_temp1
     INCF centenas
     GOTO $-7
