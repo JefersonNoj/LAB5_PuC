@@ -9,13 +9,13 @@
 ### Memory Usage ###
  Intel Hex-file ranges:
   0h - 5h		(dist/default/production\LAB5_PuC.X.production.hex)
-  8h - 87h		(dist/default/production\LAB5_PuC.X.production.hex)
+  8h - 85h		(dist/default/production\LAB5_PuC.X.production.hex)
   200h - 2F9h		(dist/default/production\LAB5_PuC.X.production.hex)
   400h - 427h		(dist/default/production\LAB5_PuC.X.production.hex)
   400Eh - 4011h		(dist/default/production\LAB5_PuC.X.production.hex)
  Unused ranges:
   6h - 7h
-  88h - 1FFh
+  86h - 1FFh
   2FAh - 3FFh
   428h - 400Dh
 
@@ -34,7 +34,7 @@
 00000050 | H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1
 00000060 | H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1
 00000070 | H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1
-00000080 | H1 H1 H1 H1 H1 H1 H1 H1 -- -- -- -- -- -- -- --
+00000080 | H1 H1 H1 H1 H1 H1 -- -- -- -- -- -- -- -- -- --
 ----------------------------------------------------------
 00000200 | H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1
 00000210 | H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1 H1

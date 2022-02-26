@@ -2478,25 +2478,25 @@ ENDM
   CONFIG WRT = OFF ; Flash Program Memory Self Write Enable bits (Write protection off)
 
 reset_tmr0 MACRO
-    BANKSEL TMR0 ; cambiamos de banco
+    BANKSEL TMR0 ; Cambiar de banco
     MOVLW 217 ; 10ms = 4(1/4Mhz)(256-N)(256)
        ; N = 256 - (10ms*4Mhz)/(4*256) = 217
     MOVWF TMR0 ; Configurar tiempo de retardo
-    BCF ((INTCON) and 07Fh), 2 ; limpiamos bandera de interrupción
+    BCF ((INTCON) and 07Fh), 2 ; Limpiar bandera de interrupción
     ENDM
 
 PSECT udata_bank0 ; Memoria común
-  valor: DS 1 ; Contador
-  banderas: DS 1
-  nibbles: DS 2
-  display: DS 2
-  decimal: DS 1
-  dec_temp1: DS 1
-  dec_temp2: DS 1
-  unidades: DS 1
-  decenas: DS 1
-  centenas: DS 1
-  disp_dec: DS 3
+  valor: DS 1 ; Almacena el valor del PORTA
+  banderas: DS 1 ; Seleccionador de display
+  nibbles: DS 2 ; Registro para almacenar nibble bajo y alto (hexadecimal)
+  display: DS 2 ; Registro para almacenar valor equivalente, para displays, del nibble bajo y alto
+  decimal: DS 1 ; Registro temporal para hacer división de centenas
+  dec_temp1: DS 1 ; Registro temporal para hacer división de decenas
+  dec_temp2: DS 1 ; Registro temporal para hacer división de unidades
+  unidades: DS 1 ; Contador de unidades
+  decenas: DS 1 ; Contador de decenas
+  centenas: DS 1 ; Contador de centenas
+  disp_dec: DS 3 ; Registro para almacenar valores equivalentes (para displays) de unidades, decenas y centenas
 
 PSECT udata_shr ; Memoria compartida
   W_TEMP: DS 1
@@ -2513,81 +2513,80 @@ PSECT intVect, class=CODE, abs, delta=2
 ;-------- INTERRUPT VECTOR ----------
 ORG 04h ; Posición 0004h para interrupciones
 push:
-    MOVWF W_TEMP
-    SWAPF STATUS, 0
-    MOVWF STATUS_TEMP
+    MOVWF W_TEMP ; Mover valor de W a W_TEMP
+    SWAPF STATUS, 0 ; Intercambiar nibbles de registro STATUS y guardar en W
+    MOVWF STATUS_TEMP ; Mover valor de W a STATUS_TEMP
 isr:
-    BTFSC ((INTCON) and 07Fh), 2
-    CALL int_tmr0
-    BTFSC ((INTCON) and 07Fh), 0 ; Interrupción del PORTB? No=0 Si=1
-    CALL int_IocB ; Si -> Subrutina con codigo a ejecutar
+    BTFSC ((INTCON) and 07Fh), 2 ; Evaluar bandera de interrupción de TMR0
+    CALL int_tmr0 ; Si ocurre interrupción se llama a la subrutina indicada
+    BTFSC ((INTCON) and 07Fh), 0 ; Evaluar bandera de interrupción del PORTB
+    CALL int_IocB ; Si ocurre interrupción se llama a la subrutina indicada
 pop:
-    SWAPF STATUS_TEMP,0
-    MOVWF STATUS
-    SWAPF W_TEMP, 1
-    SWAPF W_TEMP, 0
+    SWAPF STATUS_TEMP,0 ; Intercambiar nibbles de STATUS_TEMP y guardar en W
+    MOVWF STATUS ; Mover valor de W a registro STATUS
+    SWAPF W_TEMP, 1 ; Intercambiar nibbles de W_TEMP y guardar en este mismo registro
+    SWAPF W_TEMP, 0 ; Intercambiar nibbles de W_TEMP y gardar en W
     RETFIE
 ;------ Subrutinas de Interrupción -----
 int_IocB:
-    BTFSS PORTB, 6
-    INCF PORTA
-    BTFSS PORTB, 7
-    DECF PORTA
-    BCF ((INTCON) and 07Fh), 0
+    BTFSS PORTB, 6 ; Evaluar boton conectado al pin ((PORTB) and 07Fh), 6
+    INCF PORTA ; Incrementar PORTA
+    BTFSS PORTB, 7 ; Evaluar boton conectado al pin ((PORTB) and 07Fh), 7
+    DECF PORTA ; Decrementar PORTA
+    BCF ((INTCON) and 07Fh), 0 ; Limpiar bandera de interrupción del PORTB
     RETURN
 
 int_tmr0:
-    reset_tmr0
-    CLRF PORTD
-    BTFSC banderas, 2
-    GOTO dispC
-    BTFSS banderas, 1
-    GOTO $+4
-    BTFSC banderas, 0
-    GOTO dispD
-    GOTO dispU
-    BTFSC banderas, 0
-    GOTO disp1
-    GOTO disp0
-
+    reset_tmr0 ; Ejecutar macro
+    CLRF PORTD ; Limpiar PORTD
+    BTFSC banderas, 2 ; Evaluar bit 2 del registro banderas
+    GOTO dispC ; Saltar a la instrucción indicada
+    BTFSS banderas, 1 ; Evaluar bit 1 del registro banderas
+    GOTO $+4 ; Saltar a la cuarta instrucción siguiente
+    BTFSC banderas, 0 ; Evaluar bit 0 del registro banderas
+    GOTO dispD ; Saltar a la instrucción indicada
+    GOTO dispU ; Saltar a la instrucción indicada
+    BTFSC banderas, 0 ; Evaluar bit 0 del registro banderas
+    GOTO disp1 ; Saltar a la instrución indicada
+    ;GOTO disp0
     disp0:
- MOVF display, 0 ; Movemos display a W
- MOVWF PORTC ; Movemos Valor de tabla a PORTC
- BSF PORTD, 1 ; Encendemos display de nibble bajo
- MOVLW 1
- MOVWF banderas
+ MOVF display, 0 ; Mover valor de display a W
+ MOVWF PORTC ; Mover valor de tabla a PORTC
+ BSF PORTD, 1 ; Encender display de nibble bajo (hexadecimal)
+ MOVLW 1 ; Mover literal 1 a W
+ MOVWF banderas ; Mover valor de W a registro banderas
  RETURN
 
     disp1:
- MOVF display+1, 0 ; Movemos display+1 a W
- MOVWF PORTC ; Movemos Valor de tabla a PORTC
- BSF PORTD, 0 ; Encendemos display de nibble alto
- MOVLW 2
- MOVWF banderas
+ MOVF display+1, 0 ; Mover display+1 a W
+ MOVWF PORTC ; Mover valor de tabla a PORTC
+ BSF PORTD, 0 ; Encender display de nibble alto (hexadecimal)
+ MOVLW 2 ; Mover literal 2 a W
+ MOVWF banderas ; Mover valor de W a registro banderas
  RETURN
 
     dispU:
- MOVF disp_dec, 0 ; Movemos display+1 a W
- MOVWF PORTC ; Movemos Valor de tabla a PORTC
- BSF PORTD, 4 ; Encendemos display de nibble alto
- MOVLW 3
- MOVWF banderas
+ MOVF disp_dec, 0 ; Mover disp_dec a W
+ MOVWF PORTC ; Mover Valor de tabla a PORTC
+ BSF PORTD, 4 ; Encender display de unidades (decimal)
+ MOVLW 3 ; Mover literal 3 a W
+ MOVWF banderas ; Mover valor de W a registro banderas
  RETURN
 
     dispD:
- MOVF disp_dec+1, 0 ; Movemos display+1 a W
- MOVWF PORTC ; Movemos Valor de tabla a PORTC
- BSF PORTD, 3 ; Encendemos display de nibble alto
- MOVLW 4
- MOVWF banderas
+ MOVF disp_dec+1, 0 ; Mover disp_dec+1 a W
+ MOVWF PORTC ; Mover valor de tabla a PORTC
+ BSF PORTD, 3 ; Encender display de las decenas (decimal)
+ MOVLW 4 ; Mover literal 4 a W
+ MOVWF banderas ; Mover valor de W a registro banderas
  RETURN
 
     dispC:
- MOVF disp_dec+2, 0 ; Movemos display+1 a W
- MOVWF PORTC ; Movemos Valor de tabla a PORTC
- BSF PORTD, 2 ; Encendemos display de nibble alto
- MOVLW 0
- MOVWF banderas
+ MOVF disp_dec+2, 0 ; Mover disp_dec+2 a W
+ MOVWF PORTC ; Mover valor de tabla a PORTC
+ BSF PORTD, 2 ; Encender display de centenas (decimal)
+ MOVLW 0 ; Mover literal 0 a W
+ MOVWF banderas ; Mover valor de W a registro banderas
  RETURN
 
 PSECT code, delta=2, abs
@@ -2605,78 +2604,78 @@ main:
 ;-------- LOOP RRINCIPAL --------
 loop:
     MOVF PORTA, W ; Valor del PORTA a W
-    MOVWF valor ; Movemos W a variable valor
-    CALL obtener_nibbles ; Guardamos nibble alto y bajo de valor
-    CALL obtener_UDC
-    CALL config_displays ; Guardamos los valores a enviar en PORTC para mostrar valor en hex
-    GOTO loop
+    MOVWF valor ; Mover W a registro valor
+    CALL obtener_nibbles ; Guardar nibble alto y bajo del registro valor
+    CALL obtener_UDC ; Obtener valores equivalentes para los display
+    CALL config_displays ; Guardar los valores a enviar en PORTC para mostrar valor en hex
+    GOTO loop ; Saltar al loop principal
 
 ;---------- SUBRUTINAS ----------
 
 obtener_nibbles:
-    MOVF valor, 0
-    ANDLW 0x0F
-    MOVWF nibbles
-    SWAPF valor, 0
-    ANDLW 0x0F
-    MOVWF nibbles+1
-    RETURN
-
-config_displays:
-    MOVF nibbles, 0
-    CALL tabla
-    MOVWF display
-    MOVF nibbles+1, 0
-    CALL tabla
-    MOVWF display+1
-
-    MOVF unidades, 0
-    CALL tabla
-    MOVWF disp_dec
-    MOVF decenas, 0
-    CALL tabla
-    MOVWF disp_dec+1
-    MOVF centenas, 0
-    CALL tabla
-    MOVWF disp_dec+2
-
+    MOVF valor, 0 ; Mover registro valor a W
+    ANDLW 0x0F ; AND entre W y la literal 0x0F para tener nibble bajo
+    MOVWF nibbles ; Mover nibble bajo al registro nibbles
+    SWAPF valor, 0 ; Intercambiar nibbles del registro valor y guardar en W
+    ANDLW 0x0F ; AND entre W y la literal 0x0F para tener nibble alto
+    MOVWF nibbles+1 ; Mover nibble alto al registro nibbles+1
     RETURN
 
 obtener_UDC:
-    CLRF centenas
-    MOVF valor, 0
-    MOVWF decimal
-    MOVF decimal, 0
+    CLRF centenas ; Limpiar registro de las centenas
+    MOVF valor, 0 ; Mover registro valor a W
+    MOVWF decimal ; Mover valor de W a registro decimal
+    MOVF decimal, 0 ; Guardar valor de registro decimal en dec_temp1
     MOVWF dec_temp1
-    MOVLW 100
-    SUBWF decimal, 1
-    BTFSS STATUS, 0
-    GOTO ob_dec
-    MOVF decimal, 0
+    MOVLW 100 ; Mover literal 100 a W
+    SUBWF decimal, 1 ; Restar 100 al registro decimal y guardar en este mismo registro
+    BTFSS STATUS, 0 ; Evaluar bit de ((STATUS) and 07Fh), 0 del registro STATUS
+    GOTO ob_dec ; Saltar a la instrucción indicada si ocurrió ovwerflow en el rango
+    MOVF decimal, 0 ; Guardar valor de registro decimal en dec_temp1
     MOVWF dec_temp1
-    INCF centenas
-    GOTO $-7
+    INCF centenas ; Incrementar el registro de centenas
+    GOTO $-7 ; Saltar a la séptima instrucción anterior
     ob_dec:
- CLRF decenas
- MOVF dec_temp1, 0
+ CLRF decenas ; Limpiar registro de la decenas
+ MOVF dec_temp1, 0 ; Guardar valor de registro dec_temp1 en dec_temp2
  MOVWF dec_temp2
- MOVLW 10
- SUBWF dec_temp1, 1
- BTFSS STATUS, 0
- GOTO ob_u
- MOVF dec_temp1, 0
+ MOVLW 10 ; Mover literal 10 a W
+ SUBWF dec_temp1, 1 ; Restar 10 al registro dec_temp1 y guardar en este mismo registro
+ BTFSS STATUS, 0 ; Evaluar bit de ((STATUS) and 07Fh), 0 del registro STATUS
+ GOTO ob_u ; Saltar a la instrucción indicada si ocurrió overflow en el rango
+ MOVF dec_temp1, 0 ; Guardar valor de registro dec_temp1 en dec_temp2
  MOVWF dec_temp2
- INCF decenas
- GOTO $-7
+ INCF decenas ; Incrementear el registro de las decenas
+ GOTO $-7 ; Saltar a la séptima instrucción anterior
  ob_u:
-     CLRF unidades
-     MOVLW 1
-     SUBWF dec_temp2, 1
-     BTFSS STATUS, 0
-     GOTO $+3
-     INCF unidades
-     GOTO $-5
+     CLRF unidades ; Limpiar el registro de las unidades
+     MOVLW 1 ; Mover literal 1 a W
+     SUBWF dec_temp2, 1 ; Restar 1 al registro dec_temp2 y guardar en este mismo registro
+     BTFSS STATUS, 0 ; Evaluar vit de ((STATUS) and 07Fh), 0 del registro STATUS
+     GOTO $+3 ; Saltar a la tercera instrucción siguiente si ocurrió overflow en el rango
+     INCF unidades ; Incrementar el registro de las unidades
+     GOTO $-5 ; Saltar a la quinta instrucción anterior
      RETURN
+
+config_displays:
+    MOVF nibbles, 0 ; Mover registro nibbles a W
+    CALL tabla ; Buscar valor de W en la tabla para display
+    MOVWF display ; Mover valor equivalente al registro display
+    MOVF nibbles+1, 0 ; Mover registro nibbles+1 a W
+    CALL tabla ; Buscar valor de W en la tabla para display
+    MOVWF display+1 ; Mover valor equivalente al registro display+1
+
+    MOVF unidades, 0 ; Mover registro de las unidades a W
+    CALL tabla ; Buscar valor de W en la tabla para display
+    MOVWF disp_dec ; Mover valor equivalente al registro disp_dec
+    MOVF decenas, 0 ; Mover registro de las decenas a W
+    CALL tabla ; Buscar valor de W en la tabla para display
+    MOVWF disp_dec+1 ; Mover valor equivalente al registro disp_dec+1
+    MOVF centenas, 0 ; Mover registro de las centenas a W
+    CALL tabla ; Buscar valor de W en la tabla para display
+    MOVWF disp_dec+2 ; Mover valor equivalente al registro disp_dec+2
+
+    RETURN
 
 config_clk:
     BANKSEL OSCCON
@@ -2692,17 +2691,17 @@ config_io:
     CLRF ANSELH
     BANKSEL TRISA
     CLRF TRISA ; PORTA como salida
-    CLRF TRISC
-    CLRF TRISD
-    BSF TRISB, 6 ; ((PORTB) and 07Fh), 3 como entrada
+    CLRF TRISC ; PORTC como salida
+    CLRF TRISD ; PORTD como salida
+    BSF TRISB, 6 ; ((PORTB) and 07Fh), 6 como entrada
     BSF TRISB, 7 ; ((PORTB) and 07Fh), 7 como entrada
     BCF OPTION_REG, 7 ; Habilitación de Pull-ups en PORTB
-    BSF WPUB, 6 ; Habilitar Pull-up para ((PORTB) and 07Fh), 3
+    BSF WPUB, 6 ; Habilitar Pull-up para ((PORTB) and 07Fh), 6
     BSF WPUB, 7 ; Habilitar Pull-up para ((PORTB) and 07Fh), 7
     BANKSEL PORTA
     CLRF PORTA ; Limpiar PORTA
-    CLRF PORTC
-    CLRF PORTD
+    CLRF PORTC ; Limpiar PORTC
+    CLRF PORTD ; Limpiar PORTD
     RETURN
 
 config_tmr0:
@@ -2729,8 +2728,8 @@ config_INT:
     BSF ((INTCON) and 07Fh), 7 ; Habilitar interrupciones globales
     BSF ((INTCON) and 07Fh), 3 ; Habilitar interrupciones ON-CHANGE del PORTB
     BCF ((INTCON) and 07Fh), 0 ; Limpiar bandera de interrupciones ON-CHANGE
-    BSF ((INTCON) and 07Fh), 5
-    BCF ((INTCON) and 07Fh), 2
+    BSF ((INTCON) and 07Fh), 5 ; Habilitar interrupciones del TMR0
+    BCF ((INTCON) and 07Fh), 2 ; Limpiar bandera de interrupicón del TMR0
     RETURN
 
 ORG 200h ; Establecer posición para la tabla
